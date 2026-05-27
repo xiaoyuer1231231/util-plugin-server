@@ -1,0 +1,6 @@
+kcsp:
+    kid: 148367651160212275417ee31554b95
+    ingressUrl: https://10.0.108.236:30039
+    svs:
+        prefix: SVSapiv1
+        log_file_location: D:\var\koalii\log

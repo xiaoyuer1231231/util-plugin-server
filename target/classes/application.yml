@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+profiles:
+  active: prod
+
+spring:
+  redis:
+    host: ${REDIS_HOST:redis-crypro.cbb-third}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASS:Admin123}
+    database: ${REDIS_DB:0}
+    jedis:
+      pool:
+        max-active: 8 # 最大连接数
+        max-wait: 1ms # 最大阻塞时间
+        max-idle: 4
+        min-idle: 0
+  application:
+    name: portal
+
+# 奥联加密SDK
+dmdb:
+  # 初始化配置文件路径 (注意该路径不要使用中文，否则会找不到配置文件)
+  setting: ${DBTE_APP_YAML_PATH:src/main/resources/dbte.app.yaml}
+  cipher: ${CIPHER:false}
+
+# 日志中心范围加签验签字段
+sign:
+  fields: [content,module,time,renter_id,content,user_name,user_ip,operate_detail,operate,operate_object_type]
+
+#加解密接口地址
+encryptOrDecrypt:
+  checksumVerifyUrl: ${CHECK_SUM_VERIFY_URL:http://10.21.157.12:10006/cmk/v1/hmac}
+  encryptUrl: ${ENCRYPR_URL:http://10.21.157.12:10006/cmk/v1/encrypt}
+  decryptUrl: ${DECRYPT_URL:http://10.21.157.12:10006/cmk/v1/decrypt}
+  signUrl: ${SIGN_URL:http://10.21.157.12:10006/dsvs/v1/pkcs7/ext/signData}
+
+
