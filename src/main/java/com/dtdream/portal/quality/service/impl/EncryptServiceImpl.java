@@ -163,7 +163,6 @@ public class EncryptServiceImpl implements EncryptService {
      * @return
      */
     public  String sysDecryptKey(String data){
-        String source = Base64.getEncoder().encodeToString(data.getBytes(StandardCharsets.UTF_8));
         JSONObject result = new JSONObject();
         String uuid = generate20CharUUID();
         result.put("transId", uuid);
@@ -172,7 +171,7 @@ public class EncryptServiceImpl implements EncryptService {
         result.put("appId", appId);
         result.put("deviceId", deviceId);
         result.put("keyId", keyId);
-        result.put("encData", source);
+        result.put("encData", data);
         Map<String, String> parameters = new TreeMap<>();
         parameters.put("version","1");
         parameters.put("transId",uuid);
@@ -180,7 +179,7 @@ public class EncryptServiceImpl implements EncryptService {
         parameters.put("appId",appId);
         parameters.put("deviceId",deviceId);
         parameters.put("keyId",keyId);
-        parameters.put("encData",source);
+        parameters.put("encData",data);
         String s = sign.sortParameters(parameters);
         String signature = sign.hmacSHA256(s, secret);
         result.put("signature",signature);
@@ -218,6 +217,8 @@ public class EncryptServiceImpl implements EncryptService {
         parameters.put("deviceId",deviceId);
         parameters.put("keyId",keyId);
         parameters.put("transId",uuid);
+        parameters.put("mode",encMode);
+        parameters.put("padding","PKCS7Padding");
         parameters.put("plainText",source);
         String s = sign.sortParameters(parameters);
         String signature = sign.hmacSHA256(s, secret);
@@ -332,42 +333,170 @@ public class EncryptServiceImpl implements EncryptService {
 
 
     public static void main(String[] args) throws UnsupportedEncodingException {
-        System.out.println(System.currentTimeMillis());
-//        String data="TUNvQ0FRSXdFZ0lCQVRBS0JnZ3FnUnpQVlFGb0FRb0JBUU1SQUpCRDRabDBWN2xxamFlbStTZmx3M2c9";
-//        byte[] cipher = Base64.getDecoder().decode(data);
-//        String request = new String(cipher,"UTF-8");
-//        System.out.println(request);
-//
-//        String keyId="422c1c4c711648f0a58a8e7d39f87515";
-//        String encMode="ECB";
-//        String iv="MTIzNDU2NzgxMjM0NTY3OA";
-//        String padMode="PKCS7Padding";
-//        String appId="APP_662C3B95D1B445AFA707402654205020";
-//        String deviceId="DEV_C059C6FF92CC4ADF892CA086F58617FE";
-//        String secret="OKHgKMNe31iGISVkMAV5iI7UyM3vryFK";
-//        JSONObject result = new JSONObject();
-//        String uuid = generate20CharUUID();
-//        result.put("version","1");
-//        result.put("signAlgo","HmacSHA256");
-//        result.put("appId",appId);
-//        result.put("deviceId",deviceId);
-//        result.put("keyId",keyId);
-//        result.put("transId",uuid);
-//        result.put("encData",request);
-//        Map<String, String> parameters = new TreeMap<>();
-//        parameters.put("version","1");
-//        parameters.put("signAlgo","HmacSHA256");
-//        parameters.put("appId",appId);
-//        parameters.put("deviceId",deviceId);
-//        parameters.put("keyId",keyId);
-//        parameters.put("transId",uuid);
-//        parameters.put("encData",request);
-//        String s = sign.sortParameters(parameters);
-//        String signature = sign.hmacSHA256(s, secret);
-//        result.put("signature",signature);
-//
-//        log.info("sysDecryptKey[]start"+result.toJSONString());
+        // 配置参数（与 application.yml 一致）
+        String keyId = "3a724c42856a4ab4abfc04940c959351";
+        String encMode = "ECB";
+        String appId = "APP_FDDAF5805445434C83239787F0B285FD";
+        String deviceId = "DEV_C4B96F69BA1449BB8C80276670584E29";
+        String secret = "YGFSCeMB0KTrhcDkN6kVlavMEdEgZrcJ";
 
+        // ========== 加密请求 JSON ==========
+        String plainText = "zhangsan"; // 待加密明文
+        String source = Base64.getEncoder().encodeToString(plainText.getBytes(StandardCharsets.UTF_8));
+        String uuid = generate20CharUUID();
+
+        JSONObject encryptResult = new JSONObject();
+        encryptResult.put("version", "1");
+        encryptResult.put("signAlgo", "HmacSHA256");
+        encryptResult.put("appId", appId);
+        encryptResult.put("deviceId", deviceId);
+        encryptResult.put("transId", uuid);
+        encryptResult.put("keyId", keyId);
+        encryptResult.put("mode", encMode);
+        encryptResult.put("iv", "1234567812345678");
+
+        encryptResult.put("padding", "PKCS7Padding");
+        encryptResult.put("plainText", source);
+
+        Map<String, String> encryptParams = new TreeMap<>();
+        encryptParams.put("version", "1");
+        encryptParams.put("signAlgo", "HmacSHA256");
+        encryptParams.put("appId", appId);
+        encryptParams.put("deviceId", deviceId);
+        encryptParams.put("transId", uuid);
+        encryptParams.put("keyId", keyId);
+        encryptParams.put("mode", encMode);
+        encryptParams.put("padding", "PKCS7Padding");
+        encryptParams.put("plainText", source);
+        encryptParams.put("iv", "1234567812345678");
+        String encryptSorted = sign.sortParameters(encryptParams);
+        String encryptSignature = sign.hmacSHA256(encryptSorted, secret);
+        encryptResult.put("signature", encryptSignature);
+
+        System.out.println("========== 加密请求 JSON ==========");
+        System.out.println("明文: " + plainText);
+        System.out.println("明文Base64: " + source);
+        System.out.println(encryptResult.toJSONString());
+        System.out.println();
+
+        // ========== 解密请求 JSON ==========
+        // 用加密返回的 cipherTextBlob 作为解密输入，直接传入无需再编码
+        String encData = "MCoCAQIwEgIBATAKBggqgRzPVQFoAQoBAQMRAC/DaikTGS6KnfpfTMUwLF0="; // 替换为加密返回的cipherTextBlob
+        String uuid2 = generate20CharUUID();
+
+        JSONObject decryptResult = new JSONObject();
+        decryptResult.put("transId", uuid2);
+        decryptResult.put("version", "1");
+        decryptResult.put("signAlgo", "HmacSHA256");
+        decryptResult.put("appId", appId);
+        decryptResult.put("deviceId", deviceId);
+        decryptResult.put("keyId", keyId);
+        decryptResult.put("encData", encData);
+
+        Map<String, String> decryptParams = new TreeMap<>();
+        decryptParams.put("version", "1");
+        decryptParams.put("transId", uuid2);
+        decryptParams.put("signAlgo", "HmacSHA256");
+        decryptParams.put("appId", appId);
+        decryptParams.put("deviceId", deviceId);
+        decryptParams.put("keyId", keyId);
+        decryptParams.put("encData", encData);
+        String decryptSorted = sign.sortParameters(decryptParams);
+        String decryptSignature = sign.hmacSHA256(decryptSorted, secret);
+        decryptResult.put("signature", decryptSignature);
+
+        System.out.println("========== 解密请求 JSON ==========");
+        System.out.println("密文cipherTextBlob: " + encData);
+        System.out.println(decryptResult.toJSONString());
+        System.out.println();
+
+        // ========== 启动秘钥授权请求 JSON ==========
+        String uuid3 = generate20CharUUID();
+
+        JSONObject activateResult = new JSONObject();
+        activateResult.put("version", "1");
+        activateResult.put("signAlgo", "HmacSHA256");
+        activateResult.put("appId", appId);
+        activateResult.put("deviceId", deviceId);
+        activateResult.put("transId", uuid3);
+        activateResult.put("keyId", keyId);
+
+        Map<String, String> activateParams = new TreeMap<>();
+        activateParams.put("version", "1");
+        activateParams.put("signAlgo", "HmacSHA256");
+        activateParams.put("appId", appId);
+        activateParams.put("deviceId", deviceId);
+        activateParams.put("transId", uuid3);
+        activateParams.put("keyId", keyId);
+        String activateSorted = sign.sortParameters(activateParams);
+        String activateSignature = sign.hmacSHA256(activateSorted, secret);
+        activateResult.put("signature", activateSignature);
+
+        System.out.println("========== 启动秘钥授权请求 JSON ==========");
+        System.out.println(activateResult.toJSONString());
+        System.out.println();
+
+        // ========== 生成签名（HMAC）请求 JSON ==========
+        String signSource = "zhangsan"; // 待签名原文
+        String signSourceBase64 = Base64.getEncoder().encodeToString(signSource.getBytes(StandardCharsets.UTF_8));
+        String uuid4 = generate20CharUUID();
+
+        JSONObject signResult = new JSONObject();
+        signResult.put("transId", uuid4);
+        signResult.put("appId", appId);
+        signResult.put("keyId", keyId);
+        signResult.put("version", "1");
+        signResult.put("source", signSourceBase64);
+        signResult.put("signAlgo", "HmacSHA256");
+        signResult.put("deviceId", deviceId);
+        Map<String, String> signParams = new TreeMap<>();
+        signParams.put("transId", uuid4);
+        signParams.put("appId", appId);
+        signParams.put("keyId", keyId);
+        signParams.put("version", "1");
+        signParams.put("source", signSourceBase64);
+        signParams.put("signAlgo", "HmacSHA256");
+        signParams.put("deviceId", deviceId);
+        String signSorted = sign.sortParameters(signParams);
+        String signSignature = sign.hmacSHA256(signSorted, secret);
+        signResult.put("signature", signSignature);
+
+        System.out.println("========== 生成签名请求 JSON ==========");
+        System.out.println("原文: " + signSource);
+        System.out.println("原文Base64: " + signSourceBase64);
+        System.out.println(signResult.toJSONString());
+        System.out.println();
+
+        // ========== 验证签名请求 JSON ==========
+        // 用生成签名返回的 hmac 值作为验签的 signature
+        String hmacValue = "替换为生成签名返回的hmac值";
+        String uuid5 = generate20CharUUID();
+        JSONObject verifyResult = new JSONObject();
+        verifyResult.put("transId", uuid5);
+        verifyResult.put("appId", appId);
+        verifyResult.put("keyId", keyId);
+        verifyResult.put("version", "1");
+        verifyResult.put("hmac", hmacValue);
+        verifyResult.put("signAlgo", "HmacSHA256");
+        verifyResult.put("deviceId", deviceId);
+
+        Map<String, String> verifyParams = new TreeMap<>();
+        verifyParams.put("transId", uuid5);
+        verifyParams.put("appId", appId);
+        verifyParams.put("keyId", keyId);
+        verifyParams.put("version", "1");
+        verifyParams.put("source", signSourceBase64);
+        verifyParams.put("hmac", hmacValue);
+        verifyParams.put("signAlgo", "HmacSHA256");
+
+        String verifySorted = sign.sortParameters(verifyParams);
+        String verifySignature = sign.hmacSHA256(verifySorted, secret);
+        verifyResult.put("signature", verifySignature);
+
+        System.out.println("========== 验证签名请求 JSON ==========");
+        System.out.println("原文Base64: " + signSourceBase64);
+        System.out.println("待验签hmac: " + hmacValue);
+        System.out.println(verifyResult.toJSONString());
     }
 
 
