@@ -6,6 +6,7 @@ import com.dtdream.portal.quality.config.SignProperties;
 import com.dtdream.portal.quality.service.SignService;
 import com.dtdream.portal.quality.utils.DataProcessUtil;
 import com.dtdream.portal.quality.utils.RestResponse;
+import com.dtdream.portal.quality.utils.sign;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
@@ -35,8 +36,14 @@ public class SignServiceImpl implements SignService {
     @Value("${encryptOrDecrypt.checksumVerifyUrl}")
     private String checksumVerifyUrl;
 
-    private final String keyId="422c1c4c711648f0a58a8e7d39f87515";
-    private final String appId="APP_662C3B95D1B445AFA707402654205020";
+    @Value("${encryptOrDecrypt.keyId}")
+    private String keyId;
+    @Value("${encryptOrDecrypt.appId}")
+    private String appId;
+    @Value("${encryptOrDecrypt.deviceId}")
+    private String deviceId;
+    @Value("${encryptOrDecrypt.secret}")
+    private String secret;
     /**
      * 生成签名
      * @param data 原数据
@@ -53,11 +60,27 @@ public class SignServiceImpl implements SignService {
         String source = Base64.getEncoder().encodeToString(s.getBytes());
         String uuid = generate20CharUUID();
         JSONObject result = new JSONObject();
-        result.put("transId",uuid);
-        result.put("appId",appId);
-        result.put("keyId",keyId);
-        result.put("source",source);
-        log.info("generateSignature[]start"+result.toJSONString());
+        result.put("transId", uuid);
+        result.put("appId", appId);
+        result.put("keyId", keyId);
+        result.put("source", source);
+        result.put("version", "1");
+        result.put("signAlgo", "HmacSHA256");
+        result.put("deviceId", deviceId);
+
+        Map<String, String> parameters = new TreeMap<>();
+        parameters.put("transId", uuid);
+        parameters.put("appId", appId);
+        parameters.put("keyId", keyId);
+        parameters.put("source", source);
+        parameters.put("version", "1");
+        parameters.put("signAlgo", "HmacSHA256");
+        parameters.put("deviceId", deviceId);
+        String sortedParams = sign.sortParameters(parameters);
+        String signatureStr = sign.hmacSHA256(sortedParams, secret);
+        result.put("signature", signatureStr);
+
+        log.info("generateSignature[]request: {}", result.toJSONString());
         String postResults = HttpRequest.post(checksumVerifyUrl)
                 .body(result.toJSONString())
                 .timeout(2000).execute().body();
@@ -85,16 +108,33 @@ public class SignServiceImpl implements SignService {
         String source = Base64.getEncoder().encodeToString(s.getBytes());
         log.info("verifySignature[]start"+source);
 
-        JSONObject result = new JSONObject();
         String uuid = generate20CharUUID();
-        result.put("transId",uuid);
-        result.put("appId",appId );
-        result.put("keyId",keyId);
-        result.put("source",source);
+        JSONObject result = new JSONObject();
+        result.put("transId", uuid);
+        result.put("appId", appId);
+        result.put("keyId", keyId);
+        result.put("source", source);
+        result.put("version", "1");
+        result.put("signAlgo", "HmacSHA256");
+        result.put("deviceId", deviceId);
+
+        Map<String, String> parameters = new TreeMap<>();
+        parameters.put("transId", uuid);
+        parameters.put("appId", appId);
+        parameters.put("keyId", keyId);
+        parameters.put("source", source);
+        parameters.put("version", "1");
+        parameters.put("signAlgo", "HmacSHA256");
+        parameters.put("deviceId", deviceId);
+        String sortedParams = sign.sortParameters(parameters);
+        String signatureStr = sign.hmacSHA256(sortedParams, secret);
+        result.put("signature", signatureStr);
+
+        log.info("verifySignature[]request: {}", result.toJSONString());
         String postResults = HttpRequest.post(checksumVerifyUrl)
                 .body(result.toJSONString())
                 .timeout(2000).execute().body();
-        log.info("verifySignature[]start"+postResults);
+        log.info("verifySignature[]response: {}", postResults);
 
         JSONObject parse = JSONObject.parseObject(postResults);
         if (parse.getInteger("status")==200){
@@ -103,7 +143,7 @@ public class SignServiceImpl implements SignService {
             }
             return false;
         }
-        return true;
+        return false;
         // ************ 实现示例 end ************
     }
 

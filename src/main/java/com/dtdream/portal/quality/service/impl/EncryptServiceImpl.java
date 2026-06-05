@@ -467,36 +467,7 @@ public class EncryptServiceImpl implements EncryptService {
         System.out.println(signResult.toJSONString());
         System.out.println();
 
-        // ========== 验证签名请求 JSON ==========
-        // 用生成签名返回的 hmac 值作为验签的 signature
-        String hmacValue = "替换为生成签名返回的hmac值";
-        String uuid5 = generate20CharUUID();
-        JSONObject verifyResult = new JSONObject();
-        verifyResult.put("transId", uuid5);
-        verifyResult.put("appId", appId);
-        verifyResult.put("keyId", keyId);
-        verifyResult.put("version", "1");
-        verifyResult.put("hmac", hmacValue);
-        verifyResult.put("signAlgo", "HmacSHA256");
-        verifyResult.put("deviceId", deviceId);
 
-        Map<String, String> verifyParams = new TreeMap<>();
-        verifyParams.put("transId", uuid5);
-        verifyParams.put("appId", appId);
-        verifyParams.put("keyId", keyId);
-        verifyParams.put("version", "1");
-        verifyParams.put("source", signSourceBase64);
-        verifyParams.put("hmac", hmacValue);
-        verifyParams.put("signAlgo", "HmacSHA256");
-
-        String verifySorted = sign.sortParameters(verifyParams);
-        String verifySignature = sign.hmacSHA256(verifySorted, secret);
-        verifyResult.put("signature", verifySignature);
-
-        System.out.println("========== 验证签名请求 JSON ==========");
-        System.out.println("原文Base64: " + signSourceBase64);
-        System.out.println("待验签hmac: " + hmacValue);
-        System.out.println(verifyResult.toJSONString());
     }
 
 
