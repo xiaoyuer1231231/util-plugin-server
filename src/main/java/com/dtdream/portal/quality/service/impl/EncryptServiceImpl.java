@@ -41,13 +41,20 @@ public class EncryptServiceImpl implements EncryptService {
     @Value("${encryptOrDecrypt.signUrl}")
     private String signUrl;
 
+    @Value("${encryptOrDecrypt.keyId}")
+    private  String keyId;
 
-    private final String keyId="422c1c4c711648f0a58a8e7d39f87515";
-    private final String encMode="ECB";
-    private final String iv="MTIzNDU2NzgxMjM0NTY3OA";
-    private final String appId="APP_662C3B95D1B445AFA707402654205020";
-    private final String deviceId="DEV_C059C6FF92CC4ADF892CA086F58617FE";
-    private final String secret="OKHgKMNe31iGISVkMAV5iI7UyM3vryFK";
+    @Value("${encryptOrDecrypt.encMode}")
+    private  String encMode="ECB";
+
+    @Value("${encryptOrDecrypt.appId}")
+    private  String appId;
+
+    @Value("${encryptOrDecrypt.deviceId}")
+    private  String deviceId;
+
+    @Value("${encryptOrDecrypt.secret}")
+    private  String secret;
 
 
     /**
@@ -55,7 +62,7 @@ public class EncryptServiceImpl implements EncryptService {
      * @param plain 明文
      * @return 明文对应密文
      */
-    private byte[] generateCipherText(byte[] plain) throws UnsupportedEncodingException {
+    private String generateCipherText(byte[] plain) throws UnsupportedEncodingException {
         // TODO 对数据进行加密 (对接密码机/sdk...
         // ************ 实现示例 start ************
         log.info("generateCipherText[]start");
@@ -72,9 +79,8 @@ public class EncryptServiceImpl implements EncryptService {
         String data = parse.getJSONObject("data").getString("cipherTextBlob");
         // 插入已密文为key缓存
         log.info("generateCipherText[]start"+data+"|"+request);
-        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
         // 获取密文返回
-        return bytes;
+        return data;
         // ************ 实现示例 end ************
     }
 
@@ -83,21 +89,20 @@ public class EncryptServiceImpl implements EncryptService {
      * @param cipher 密文
      * @return 密文对应明文
      */
-    private byte[] generatePlainText(byte[] cipher) throws UnsupportedEncodingException {
+    private byte[] generatePlainText(String  cipher) throws UnsupportedEncodingException {
         // TODO 对数据进行解密 (对接密码机/sdk...
         // ************ 实现示例 start ************
         // 获取输入的密文
-        String request = new String(cipher,"UTF-8");
-        log.info("generatePlainText[]start"+request+"|"+request);
+        log.info("generatePlainText[]start"+cipher+"|"+cipher);
         //调用解密接口
-        String msg = sysDecryptKey(request);
+        String msg = sysDecryptKey(cipher);
         JSONObject parse = JSONObject.parseObject(msg);
         if (parse.getInteger("status")!=200){
             log.info("decrypt[]error. cipher: {}, ErrorCode: {}. ErrorMessage: {}",
                     cipher, parse.getString("code"), parse.getString("msg"));
             return null;
         }
-        String data = parse.getJSONObject("data").getString("plainText");
+        String data = parse.getJSONObject("data").getString("data");
         // 添加base64 解密
         return data.getBytes(StandardCharsets.UTF_8);
         // ************ 实现示例 end ************
@@ -106,10 +111,8 @@ public class EncryptServiceImpl implements EncryptService {
     @SneakyThrows
     @Override
     public RestResponse<Map<String, Object>> encrypt(Map<String, Object> plainMap) {
-
         log.info("encrypt[]start. dataSize: {}.", plainMap.size());
         log.info("encrypt[]start. plainMap: {}.", plainMap);
-
         Map<String, Object> cipherMap = new HashMap<>(plainMap.size());
         // 对每条数据加密处理
         for (Map.Entry<String, Object> entry : plainMap.entrySet()) {
@@ -118,14 +121,12 @@ public class EncryptServiceImpl implements EncryptService {
                 cipherMap.put(entry.getKey(), null);
                 continue;
             }
-
             byte[] plain = entry.getValue().toString().getBytes(StandardCharsets.UTF_8);
-            byte[] cipher = this.generateCipherText(plain);
-            if (null == cipher) {
+            String pwd = this.generateCipherText(plain);
+            if (null == pwd) {
                 return RestResponse.createResponse(Response.Status.INTERNAL_SERVER_ERROR);
             }
-            // Base64 编码后返回
-            cipherMap.put(entry.getKey(), Base64.getEncoder().encodeToString(cipher));
+            cipherMap.put(entry.getKey(), pwd);
         }
 
         log.info("encrypt[]success. dataSize: {}.", cipherMap.size());
@@ -146,8 +147,8 @@ public class EncryptServiceImpl implements EncryptService {
                 continue;
             }
             // Base64 解码后开始处理
-            byte[] cipher = Base64.getDecoder().decode(entry.getValue().toString());
-            byte[] plain = this.generatePlainText(cipher);
+            Object value = entry.getValue();
+            byte[] plain = this.generatePlainText(value.toString());
             if (null == plain) {
                 return RestResponse.createResponse(Response.Status.INTERNAL_SERVER_ERROR);
             }
@@ -165,26 +166,25 @@ public class EncryptServiceImpl implements EncryptService {
         String source = Base64.getEncoder().encodeToString(data.getBytes(StandardCharsets.UTF_8));
         JSONObject result = new JSONObject();
         String uuid = generate20CharUUID();
+        result.put("transId", uuid);
         result.put("version", "1");
         result.put("signAlgo", "HmacSHA256");
         result.put("appId", appId);
         result.put("deviceId", deviceId);
-        result.put("transId", uuid);
         result.put("keyId", keyId);
         result.put("encData", source);
-        // 证书base64
-        String base64Cert="";
-        //秘钥id
-        String keyPairId="";
-        // 秘钥版本
-        int keyPairVersion=1;
-        String msg = sysPkcs7Sign(source, base64Cert, "SHA256withRSA", "false", "false", "HOSTING_KEY", keyPairId, keyPairVersion);
-        JSONObject parseSign = JSONObject.parseObject(msg);
-        if (parseSign.getInteger("status") != 200) {
-            log.error("pkcs7Sign[]error. oriData: {}, ErrorCode: {}. ErrorMessage: {}",
-                    source, parseSign.getString("code"), parseSign.getString("msg"));
-            return null;
-        }
+        Map<String, String> parameters = new TreeMap<>();
+        parameters.put("version","1");
+        parameters.put("transId",uuid);
+        parameters.put("signAlgo","HmacSHA256");
+        parameters.put("appId",appId);
+        parameters.put("deviceId",deviceId);
+        parameters.put("keyId",keyId);
+        parameters.put("encData",source);
+        String s = sign.sortParameters(parameters);
+        String signature = sign.hmacSHA256(s, secret);
+        result.put("signature",signature);
+        log.info("encryptData[]request: {}", result.toJSONString());
         String postResults = HttpRequest.post(decryptUrl)
                 .body(result.toJSONString())
                 .timeout(2000).execute().body();
@@ -209,24 +209,19 @@ public class EncryptServiceImpl implements EncryptService {
         result.put("transId", uuid);
         result.put("keyId", keyId);
         result.put("mode", encMode);
-        result.put("iv", iv);
         result.put("padding", "PKCS7Padding");
         result.put("plainText", source);
-
-        // 证书base64
-        String base64Cert="";
-        //秘钥id
-        String keyPairId="";
-        // 秘钥版本
-        int keyPairVersion=1;
-        String msg = sysPkcs7Sign(source, base64Cert, "SHA256withRSA", "false", "false", "HOSTING_KEY", keyPairId, keyPairVersion);
-        JSONObject parseSign = JSONObject.parseObject(msg);
-        if (parseSign.getInteger("status") != 200) {
-            log.error("pkcs7Sign[]error. oriData: {}, ErrorCode: {}. ErrorMessage: {}",
-                    source, parseSign.getString("code"), parseSign.getString("msg"));
-            return null;
-        }
-        result.put("signature",  parseSign.getString("signValue"));
+        Map<String, String> parameters = new TreeMap<>();
+        parameters.put("version","1");
+        parameters.put("signAlgo","HmacSHA256");
+        parameters.put("appId",appId);
+        parameters.put("deviceId",deviceId);
+        parameters.put("keyId",keyId);
+        parameters.put("transId",uuid);
+        parameters.put("plainText",source);
+        String s = sign.sortParameters(parameters);
+        String signature = sign.hmacSHA256(s, secret);
+        result.put("signature",signature);
         log.info("encryptData[]request: {}", result.toJSONString());
         String postResults = HttpRequest.post(encryptUrl)
                 .body(result.toJSONString())
@@ -337,41 +332,43 @@ public class EncryptServiceImpl implements EncryptService {
 
 
     public static void main(String[] args) throws UnsupportedEncodingException {
-        String data="TUNvQ0FRSXdFZ0lCQVRBS0JnZ3FnUnpQVlFGb0FRb0JBUU1SQUpCRDRabDBWN2xxamFlbStTZmx3M2c9";
-        byte[] cipher = Base64.getDecoder().decode(data);
-        String request = new String(cipher,"UTF-8");
-        System.out.println(request);
-
-        String keyId="422c1c4c711648f0a58a8e7d39f87515";
-        String encMode="ECB";
-        String iv="MTIzNDU2NzgxMjM0NTY3OA";
-        String padMode="PKCS7Padding";
-        String appId="APP_662C3B95D1B445AFA707402654205020";
-        String deviceId="DEV_C059C6FF92CC4ADF892CA086F58617FE";
-        String secret="OKHgKMNe31iGISVkMAV5iI7UyM3vryFK";
-        JSONObject result = new JSONObject();
-        String uuid = generate20CharUUID();
-        result.put("version","1");
-        result.put("signAlgo","HmacSHA256");
-        result.put("appId",appId);
-        result.put("deviceId",deviceId);
-        result.put("keyId",keyId);
-        result.put("transId",uuid);
-        result.put("encData",request);
-        Map<String, String> parameters = new TreeMap<>();
-        parameters.put("version","1");
-        parameters.put("signAlgo","HmacSHA256");
-        parameters.put("appId",appId);
-        parameters.put("deviceId",deviceId);
-        parameters.put("keyId",keyId);
-        parameters.put("transId",uuid);
-        parameters.put("encData",request);
-        String s = sign.sortParameters(parameters);
-        String signature = sign.hmacSHA256(s, secret);
-        result.put("signature",signature);
-
-        log.info("sysDecryptKey[]start"+result.toJSONString());
+        System.out.println(System.currentTimeMillis());
+//        String data="TUNvQ0FRSXdFZ0lCQVRBS0JnZ3FnUnpQVlFGb0FRb0JBUU1SQUpCRDRabDBWN2xxamFlbStTZmx3M2c9";
+//        byte[] cipher = Base64.getDecoder().decode(data);
+//        String request = new String(cipher,"UTF-8");
+//        System.out.println(request);
+//
+//        String keyId="422c1c4c711648f0a58a8e7d39f87515";
+//        String encMode="ECB";
+//        String iv="MTIzNDU2NzgxMjM0NTY3OA";
+//        String padMode="PKCS7Padding";
+//        String appId="APP_662C3B95D1B445AFA707402654205020";
+//        String deviceId="DEV_C059C6FF92CC4ADF892CA086F58617FE";
+//        String secret="OKHgKMNe31iGISVkMAV5iI7UyM3vryFK";
+//        JSONObject result = new JSONObject();
+//        String uuid = generate20CharUUID();
+//        result.put("version","1");
+//        result.put("signAlgo","HmacSHA256");
+//        result.put("appId",appId);
+//        result.put("deviceId",deviceId);
+//        result.put("keyId",keyId);
+//        result.put("transId",uuid);
+//        result.put("encData",request);
+//        Map<String, String> parameters = new TreeMap<>();
+//        parameters.put("version","1");
+//        parameters.put("signAlgo","HmacSHA256");
+//        parameters.put("appId",appId);
+//        parameters.put("deviceId",deviceId);
+//        parameters.put("keyId",keyId);
+//        parameters.put("transId",uuid);
+//        parameters.put("encData",request);
+//        String s = sign.sortParameters(parameters);
+//        String signature = sign.hmacSHA256(s, secret);
+//        result.put("signature",signature);
+//
+//        log.info("sysDecryptKey[]start"+result.toJSONString());
 
     }
+
 
 }

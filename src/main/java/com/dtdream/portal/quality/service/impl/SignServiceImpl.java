@@ -67,8 +67,8 @@ public class SignServiceImpl implements SignService {
                     parse.getInteger("code"), parse.getInteger("msg"));
             return null;
         }
-        String data1 = parse.getJSONObject("data").getString("hmac");
-        return data1;
+        String hmac = parse.getJSONObject("data").getString("hmac");
+        return hmac;
         // ************ 实现示例 end ************
     }
 
@@ -152,7 +152,6 @@ public class SignServiceImpl implements SignService {
             // 对 signData 整体验签, 得到验签结果
             byte[] originData = new ObjectMapper().writeValueAsString(signData).getBytes(StandardCharsets.UTF_8);
             boolean result = this.verifySignature(originData, signature);
-
             log.info("verify[]success. 验签结果 ==> {}", result);
             return RestResponse.createResponseWithBody(Response.Status.OK, result);
         } catch (JsonProcessingException | UnsupportedEncodingException e) {

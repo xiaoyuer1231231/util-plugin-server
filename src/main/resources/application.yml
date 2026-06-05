@@ -35,5 +35,13 @@ encryptOrDecrypt:
   encryptUrl: ${ENCRYPR_URL:http://10.21.157.12:10006/cmk/v1/encrypt}
   decryptUrl: ${DECRYPT_URL:http://10.21.157.12:10006/cmk/v1/decrypt}
   signUrl: ${SIGN_URL:http://10.21.157.12:10006/dsvs/v1/pkcs7/ext/signData}
+  keyId: ${KEY_ID:422c1c4c711648f0a58a8e7d39f87515}
+  encMode: ${ENC_MODE:ECB}
+  appId: ${APP_ID:APP_FDDAF5805445434C83239787F0B285FD}
+  deviceId: ${DEVICE_ID:DEV_C4B96F69BA1449BB8C80276670584E29}
+  secret: ${SECRET:YGFSCeMB0KTrhcDkN6kVlavMEdEgZrcJ}
+
+
+
 
 
