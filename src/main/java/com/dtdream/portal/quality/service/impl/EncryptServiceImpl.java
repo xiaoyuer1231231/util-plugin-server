@@ -102,9 +102,10 @@ public class EncryptServiceImpl implements EncryptService {
                     cipher, parse.getString("code"), parse.getString("msg"));
             return null;
         }
-        String data = parse.getJSONObject("data").getString("data");
+        String data = parse.getJSONObject("data").getString("plainText");
         // 添加base64 解密
-        return data.getBytes(StandardCharsets.UTF_8);
+        byte[] decode = Base64.getDecoder().decode(data);
+        return decode;
         // ************ 实现示例 end ************
     }
 
@@ -187,6 +188,8 @@ public class EncryptServiceImpl implements EncryptService {
         String postResults = HttpRequest.post(decryptUrl)
                 .body(result.toJSONString())
                 .timeout(2000).execute().body();
+        log.info("sysDecryptKey[]end|"+postResults);
+
         return postResults;
 
     }
@@ -466,6 +469,7 @@ public class EncryptServiceImpl implements EncryptService {
         System.out.println("原文Base64: " + signSourceBase64);
         System.out.println(signResult.toJSONString());
         System.out.println();
+
 
 
     }
